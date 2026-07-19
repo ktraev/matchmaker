@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Matchmaker</title>
+<style>
+  :root{
+    color-scheme: light;
+    --surface-1:#fcfcfb; --plane:#f4f4f1; --card:#ffffff;
+    --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --line:#c3c2b7; --border:rgba(11,11,11,.10);
+    --series-1:#2a78d6;
+    --good:#0ca30c; --warning:#eda100; --serious:#ec835a; --critical:#d03b3b;
+    --radius:14px; --shadow:0 1px 2px rgba(11,11,11,.05),0 6px 24px rgba(11,11,11,.06);
+    --font: system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  html[data-theme="dark"]{
+    color-scheme: dark;
+    --surface-1:#1a1a19; --plane:#0d0d0d; --card:#201f1e;
+    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --line:#383835; --border:rgba(255,255,255,.10);
+    --series-1:#3987e5;
+    --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#e05555;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 30px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme: dark){
+    html[data-theme="auto"]{
+      color-scheme: dark;
+      --surface-1:#1a1a19; --plane:#0d0d0d; --card:#201f1e;
+      --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+      --grid:#2c2c2a; --line:#383835; --border:rgba(255,255,255,.10);
+      --series-1:#3987e5; --warning:#fab219; --critical:#e05555;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font);background:var(--plane);color:var(--ink);
+    font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{margin:0;font-weight:650;letter-spacing:-.01em}
+  button{font-family:inherit;cursor:pointer}
+  input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);
+    background:var(--surface-1);border:1px solid var(--border);border-radius:9px;padding:8px 10px}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--series-1);outline-offset:0}
+  textarea{resize:vertical;width:100%}
+  a{color:var(--series-1)}
+
+  header.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;
+    padding:12px 20px;background:color-mix(in srgb,var(--surface-1) 88%,transparent);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:10px;margin-right:6px}
+  .brand .dot{width:26px;height:26px;border-radius:8px;
+    background:linear-gradient(135deg,var(--series-1),#e87ba4);flex:none}
+  .brand b{font-size:16px}
+  .brand span{color:var(--muted);font-size:12px;display:block;line-height:1}
+  nav{display:flex;gap:4px;background:var(--plane);padding:4px;border-radius:11px;border:1px solid var(--border)}
+  nav button{border:none;background:transparent;color:var(--ink-2);padding:7px 13px;border-radius:8px;font-size:14px;font-weight:550}
+  nav button.active{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+  .spacer{flex:1}
+  .tbtn{border:1px solid var(--border);background:var(--card);color:var(--ink);
+    padding:8px 12px;border-radius:9px;font-size:13px;font-weight:550;display:inline-flex;align-items:center;gap:6px}
+  .tbtn:hover{border-color:var(--line)}
+  .tbtn.primary{background:var(--series-1);color:#fff;border-color:transparent}
+  .tbtn.primary[disabled]{opacity:.6;cursor:default}
+  .tbtn.danger{color:var(--critical)}
+  .save-note{font-size:11.5px;color:var(--muted);white-space:nowrap}
+  .fsize{display:inline-flex;gap:3px}
+  .fsbtn{padding:8px 10px;font-weight:700;min-width:34px;justify-content:center}
+
+  main{max-width:1200px;margin:0 auto;padding:22px 20px 90px}
+
+  .cwrap{display:grid;grid-template-columns:290px 1fr;gap:22px;align-items:start}
+  @media(max-width:820px){.cwrap{grid-template-columns:1fr}}
+  .clist{display:flex;flex-direction:column;gap:9px;position:sticky;top:86px}
+  .ccard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 13px;
+    display:flex;align-items:center;gap:11px;text-align:left;width:100%}
+  .ccard:hover{border-color:var(--line)}
+  .ccard.sel{border-color:var(--series-1);box-shadow:0 0 0 1px var(--series-1)}
+  .ccard .nm{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ccard.dq{opacity:.72}
+  .badge{font-size:12px;font-weight:700;padding:3px 8px;border-radius:999px;flex:none;
+    font-variant-numeric:tabular-nums;color:#fff}
+  .badge.sm{min-width:34px;text-align:center}
+  .badge.dq{background:var(--critical)!important}
+  .badge.na{background:var(--muted)}
+  .addbtn{border:1px dashed var(--line);background:transparent;color:var(--ink-2);
+    padding:11px;border-radius:12px;font-weight:600}
+  .addbtn:hover{border-color:var(--series-1);color:var(--series-1)}
+
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px;box-shadow:var(--shadow);margin-bottom:18px}
+  .panel h3{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:14px}
+
+  .cand-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .cand-head input.name{font-size:22px;font-weight:650;flex:1;border:none;background:transparent;padding:4px 2px}
+  .cand-head input.name:focus{outline:none;border-bottom:2px solid var(--series-1)}
+
+  .scorebox{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+  .bigscore{font-size:54px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+  .bigscore small{font-size:20px;color:var(--muted);font-weight:600}
+  .tier{font-size:15px;font-weight:700;padding:5px 12px;border-radius:999px;color:#fff;display:inline-flex;gap:6px;align-items:center}
+  .score-meta{color:var(--ink-2);font-size:13.5px}
+  .assessbar{height:7px;border-radius:4px;background:var(--grid);overflow:hidden;margin-top:6px;width:200px}
+  .assessbar>i{display:block;height:100%;background:var(--series-1);border-radius:4px}
+
+  .dq-banner{background:color-mix(in srgb,var(--critical) 12%,var(--card));
+    border:1px solid color-mix(in srgb,var(--critical) 45%,transparent);color:var(--critical);
+    border-radius:11px;padding:12px 14px;font-weight:600;margin-bottom:16px;font-size:14px}
+
+  .db-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+  .db-chip{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--border);
+    border-radius:10px;background:var(--surface-1);font-size:13.5px}
+  .db-chip input{width:17px;height:17px;accent-color:var(--critical);flex:none}
+  .db-chip.on{border-color:var(--critical);background:color-mix(in srgb,var(--critical) 9%,var(--surface-1))}
+  .db-chip .aitag{margin-left:auto}
+
+  .dim{padding:14px 0;border-bottom:1px solid var(--grid)}
+  .dim:last-child{border-bottom:none}
+  .dim-top{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+  .dim-top .dn{font-weight:600;font-size:15px}
+  .dim-top .dw{font-size:11.5px;color:var(--muted);font-weight:600;background:var(--plane);
+    padding:2px 7px;border-radius:6px;border:1px solid var(--border)}
+  .aitag{font-size:9.5px;font-weight:700;letter-spacing:.04em;color:#fff;background:var(--series-1);
+    padding:2px 6px;border-radius:6px;text-transform:uppercase}
+  .dim-desc{color:var(--muted);font-size:12.5px;margin-bottom:9px}
+  .rate-row{display:flex;align-items:center;gap:12px}
+  .rate-row input[type=range]{flex:1;accent-color:var(--series-1)}
+  .rate-row input[type=range].unrated{accent-color:var(--muted);opacity:.55}
+  .rv{width:60px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;font-size:15px}
+  .rv.na{color:var(--muted);font-size:12px;font-weight:600}
+  .clearbtn{border:1px solid var(--border);background:var(--surface-1);color:var(--ink-2);
+    border-radius:7px;padding:5px 8px;font-size:11.5px}
+  .airat{font-size:12.5px;color:var(--ink-2);margin-top:7px;padding-left:10px;border-left:2px solid var(--series-1)}
+  .airat b{color:var(--series-1)}
+  .dim textarea{margin-top:8px;min-height:38px;font-size:13px}
+
+  .att-list{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+  .att{display:flex;gap:12px;padding:11px;border:1px solid var(--border);border-radius:11px;background:var(--surface-1)}
+  .att img{width:74px;height:74px;object-fit:cover;border-radius:9px;flex:none;cursor:zoom-in;border:1px solid var(--border)}
+  .att .meta{flex:1;min-width:0}
+  .att .atype{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+  .att .atitle{font-weight:600;font-size:14px;margin:1px 0 3px}
+  .att .abody{font-size:13px;color:var(--ink-2);white-space:pre-wrap;max-height:120px;overflow:auto}
+  .att .rm{align-self:flex-start;border:none;background:transparent;color:var(--muted);font-size:18px;padding:0 4px;line-height:1}
+  .att .rm:hover{color:var(--critical)}
+  .add-att-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+
+  .narr{white-space:pre-wrap;font-size:15px;line-height:1.65;color:var(--ink);
+    background:var(--surface-1);border:1px solid var(--border);border-radius:11px;padding:14px 16px}
+  .flags{margin-top:12px}
+  .flags .ft{font-weight:650;font-size:13px;margin-bottom:5px}
+  .flags ul{margin:0;padding-left:18px}
+  .flags li{font-size:14.5px;margin:4px 0}
+
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--grid)}
+  th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:650;cursor:pointer;white-space:nowrap}
+  td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
+  tr.rowlink:hover td{background:var(--plane)}
+  .matrix td.cell{text-align:center;font-weight:600;font-variant-numeric:tabular-nums;border:1px solid var(--surface-1)}
+  .matrix th.rot{font-size:11px;color:var(--ink-2);text-transform:none;letter-spacing:0;vertical-align:bottom}
+  .matrix td.nm{font-weight:600;white-space:nowrap}
+  .legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:12px}
+  .legend .sw{width:15px;height:15px;border-radius:4px;border:1px solid var(--border)}
+
+  .rrow{display:grid;grid-template-columns:1fr 76px 2fr 34px;gap:10px;align-items:start;margin-bottom:9px}
+  .rrow input,.rrow textarea{width:100%}
+  .rrow .rm{border:none;background:transparent;color:var(--muted);font-size:18px}
+  .rrow .rm:hover{color:var(--critical)}
+  .dbrow{display:grid;grid-template-columns:1fr 34px;gap:10px;margin-bottom:8px;max-width:520px}
+  .wsum{font-size:13px;color:var(--ink-2);margin:10px 0}
+  .wsum b{font-variant-numeric:tabular-nums}
+  .hint{font-size:13.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+
+  .slabel{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin:14px 0 5px}
+  .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:6px}
+  @media(max-width:700px){.sgrid{grid-template-columns:1fr}}
+  .sgrid input{width:100%}
+  .prov-select{max-width:340px}
+
+  .empty{text-align:center;color:var(--muted);padding:60px 20px}
+  .empty h2{color:var(--ink);margin-bottom:8px;font-weight:600}
+
+  .lb{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:50;padding:30px}
+  .lb.on{display:flex}
+  .lb img{max-width:100%;max-height:100%;border-radius:10px}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--surface-1);
+    padding:10px 18px;border-radius:10px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
+  .toast.on{opacity:1}
+  .muted{color:var(--muted)}
+  .flexline{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><div class="dot"></div><div><b>AI Matchmaker</b><span>compatibility scoring</span></div></div>
+  <nav id="nav">
+    <button data-view="candidates" class="active">Candidates</button>
+    <button data-view="compare">Compare</button>
+    <button data-view="rubric">Rubric</button>
+    <button data-view="myprofile">My Profile</button>
+    <button data-view="settings">Settings</button>
+  </nav>
+  <div class="spacer"></div>
+  <span class="save-note" id="saveNote"></span>
+  <div class="fsize"><button class="tbtn fsbtn" id="fsDown" title="Smaller text">A−</button><button class="tbtn fsbtn" id="fsUp" title="Larger text">A+</button></div>
+  <button class="tbtn" id="themeBtn" title="Toggle theme">◐</button>
+  <button class="tbtn" id="exportBtn">↓ Save file</button>
+  <button class="tbtn" id="importBtn">↑ Load file</button>
+  <input type="file" id="importInput" accept="application/json" hidden>
+</header>
+
+<main id="main"></main>
+
+<div class="lb" id="lightbox"><img id="lbimg" alt=""></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ---------- defaults ---------- */
+const DEFAULT_DEALBREAKERS = [
+  {id:"db_smoke", label:"Smoker"},
+  {id:"db_kids",  label:"Wants children"},
+  {id:"db_right", label:"Right-wing politics"},
+  {id:"db_avoid", label:"Dismissive- or fearful-avoidant attachment"},
+  {id:"db_relig", label:"Strongly religious"},
+  {id:"db_chalga",label:"Chalga taste"},
+  {id:"db_mono",  label:"Cheating / non-monogamy"}
+];
+const DEFAULT_DIMENSIONS = [
+  {id:"d_attach", name:"Secure attachment & emotional availability", weight:18,
+   desc:"Securely attached, emotionally available and consistent; not avoidant. Stays present and repairs."},
+  {id:"d_shared", name:"Shared-life intent & partnership integration", weight:15,
+   desc:"Wants an exclusive long-term partnership, open to living together, full integration of lives."},
+  {id:"d_affect", name:"Affection & communication", weight:12,
+   desc:"Frequent communication, easy repair after conflict, shows affection readily — words and touch."},
+  {id:"d_travel", name:"Travel & adventure", weight:11,
+   desc:"Loves travelling, shared adventure and new experiences."},
+  {id:"d_intel",  name:"Intellect & cultural compatibility", weight:11,
+   desc:"Intellectually curious; shares culture, music, cinema, books, art, history; open-minded, pro-tech, deep conversations."},
+  {id:"d_char",   name:"Character & values", weight:10,
+   desc:"Honesty, loyalty, empathy, high moral standards, supports social causes, humour, optimism."},
+  {id:"d_life",   name:"Lifestyle & health", weight:6,
+   desc:"Healthy lifestyle, active in sport, light drinker; not a workaholic or perfectionist."},
+  {id:"d_energy", name:"Personality energy", weight:5,
+   desc:"Extroverted, expressive, easy-going, friendly, optimistic."},
+  {id:"d_attract",name:"Physical attraction", weight:5,
+   desc:"Fit and attractive to you."},
+  {id:"d_career", name:"Career, ambition & money", weight:4,
+   desc:"Successful career with healthy ambition; practical and balanced with money."},
+  {id:"d_loc",    name:"Sofia location + photography bonus", weight:3,
+   desc:"Based in / willing to be in Sofia; a photography hobby is a strong plus."}
+];
+function defaultRubric(){ return { dealbreakers:DEFAULT_DEALBREAKERS.map(d=>({...d})), dimensions:DEFAULT_DIMENSIONS.map(d=>({...d})) }; }
+function defaultSettings(){ return { provider:"anthropic", keys:{anthropic:"",openai:""},
+  models:{anthropic:"claude-sonnet-5", openai:"gpt-5.6-terra"} }; }
+function defaultMe(){ return { age:"", height:"", work:"", location:"", languages:"", about:"", interests:"", life:"", brings:"", boundaries:"", extra:"" }; }
+
+/* ---------- state ---------- */
+const LS_KEY = "ai_matchmaker_v1";
+const LS_SET = "ai_matchmaker_settings";
+let state = load() || { version:3, rubric:defaultRubric(), candidates:[], selected:null, me:defaultMe() };
+let settings = loadSettings() || defaultSettings();
+let view = "candidates";
+let compareSort = "score";
+let aiBusy = {};
+let aiError = {};
+
+function migrate(){
+  if(!state.me) state.me = defaultMe();
+  state.candidates = state.candidates || [];
+  state.candidates.forEach(c=>{
+    c.ratings=c.ratings||{}; c.notes=c.notes||{}; c.dealbreakers=c.dealbreakers||{};
+    c.attachments=c.attachments||[]; c.ratingSource=c.ratingSource||{};
+    c.aiRationale=c.aiRationale||{}; c.dbSource=c.dbSource||{}; c.dbReason=c.dbReason||{};
+    if(c.ai===undefined) c.ai=null;
+  });
+  // settings shape guard
+  settings = Object.assign(defaultSettings(), settings);
+  settings.keys = Object.assign({anthropic:"",openai:""}, settings.keys||{});
+  settings.models = Object.assign({anthropic:"claude-sonnet-5",openai:"gpt-5.6-terra"}, settings.models||{});
+}
+function uid(p){ return p + Math.random().toString(36).slice(2,9) + (state.candidates.length); }
+
+/* ---------- persistence ---------- */
+function save(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(state));
+    setSaveNote("Auto-saved to this browser · use “Save file” for a backup"); }
+  catch(e){ setSaveNote("⚠ Auto-save off (data too large) — use “Save file” to keep your data"); }
+}
+function load(){ try{ const s=localStorage.getItem(LS_KEY); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function saveSettings(){ try{ localStorage.setItem(LS_SET, JSON.stringify(settings)); }catch(e){} }
+function loadSettings(){ try{ const s=localStorage.getItem(LS_SET); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function setSaveNote(t){ document.getElementById("saveNote").textContent = t; }
+
+/* ---------- scoring ---------- */
+function scoreOf(c){
+  const dims=state.rubric.dimensions; let wsum=0, acc=0;
+  const totalW=dims.reduce((a,d)=>a+(+d.weight||0),0);
+  dims.forEach(d=>{ const r=c.ratings?c.ratings[d.id]:null;
+    if(r!==null&&r!==undefined){ wsum+=(+d.weight||0); acc+=(r/10)*(+d.weight||0); } });
+  const score=wsum>0?Math.round((acc/wsum)*100):null;
+  const assessed=totalW>0?Math.round((wsum/totalW)*100):0;
+  const dq=state.rubric.dealbreakers.filter(db=> c.dealbreakers && c.dealbreakers[db.id]);
+  return { score, assessed, dq };
+}
+function tierOf(score, dq){
+  if(dq&&dq.length) return {label:"Disqualified", color:"var(--critical)"};
+  if(score===null) return {label:"Not assessed", color:"var(--muted)"};
+  if(score>=78) return {label:"Strong match", color:"var(--good)"};
+  if(score>=60) return {label:"Promising", color:"var(--series-1)"};
+  if(score>=42) return {label:"Mixed", color:"var(--warning)"};
+  return {label:"Weak", color:"var(--critical)"};
+}
+function ratingCell(r){ if(r===null||r===undefined) return "color-mix(in srgb,var(--muted) 12%,transparent)";
+  return `color-mix(in srgb, var(--series-1) ${Math.max(8,r*10)}%, transparent)`; }
+function shortName(n){ return n.split(" & ")[0].split(" (")[0]; }
+
+/* ---------- narrative (deterministic) ---------- */
+function narrative(c){
+  const s=scoreOf(c); const dims=state.rubric.dimensions;
+  const rated=dims.filter(d=>c.ratings&&c.ratings[d.id]!==null&&c.ratings[d.id]!==undefined).map(d=>({d,r:c.ratings[d.id]}));
+  const strengths=rated.filter(x=>x.r>=7).sort((a,b)=>(b.r*b.d.weight)-(a.r*a.d.weight));
+  const concerns=rated.filter(x=>x.r<=4).sort((a,b)=>b.d.weight-a.d.weight);
+  const unrated=dims.filter(d=>!(c.ratings&&c.ratings[d.id]!==null&&c.ratings[d.id]!==undefined)).sort((a,b)=>b.weight-a.weight);
+  let out=[];
+  if(s.dq.length) out.push("⛔ DISQUALIFIED — hits a hard dealbreaker: "+s.dq.map(x=>x.label).join(", ")+". Ruled out regardless of other strengths.");
+  if(s.score!==null) out.push(`Overall compatibility: ${s.score}/100 (${tierOf(s.score,s.dq).label}), based on ${s.assessed}% of the rubric assessed so far.`);
+  else out.push("Not yet scored — rate some dimensions or run an AI assessment below.");
+  if(strengths.length) out.push("Strengths: "+strengths.slice(0,4).map(x=>{const n=c.notes&&c.notes[x.d.id]?` — ${c.notes[x.d.id].trim()}`:"";return `${shortName(x.d.name)} (${x.r}/10)${n}`;}).join("; ")+".");
+  if(concerns.length) out.push("Watch-outs: "+concerns.map(x=>{const n=c.notes&&c.notes[x.d.id]?` — ${c.notes[x.d.id].trim()}`:"";return `${shortName(x.d.name)} (${x.r}/10)${n}`;}).join("; ")+".");
+  if(unrated.length) out.push("Still to assess: "+unrated.slice(0,4).map(d=>shortName(d.name)).join(", ")+(unrated.length>4?", …":"")+".");
+  if(c.generalNotes&&c.generalNotes.trim()) out.push("Your notes: "+c.generalNotes.trim());
+  return out.join("\n\n");
+}
+
+/* ---------- AI: prompt building ---------- */
+function assessInstructions(c){
+  const dims=state.rubric.dimensions, dbs=state.rubric.dealbreakers;
+  let t=`You are an expert relationship, personality and body-language analyst helping me evaluate a potential romantic partner from dating-app material. Analyse the attached screenshot(s) — profile photos AND any profile text / self-description visible in or below them — together with any extra notes and messages I provide.
+
+Apply ALL of these analytical lenses and weave them together:
+- Photo content and setting; recurring themes across the set of photos.
+- Body language, posture, facial expression and micro-expressions; the emotional impression projected.
+- Clothing, grooming and self-presentation choices and what they signal.
+- Symbolic / contextual meaning and subtext (props, locations, company, activities, what is foregrounded vs hidden).
+- The self-description: writing style, tone, vocabulary, what it emphasises and what it omits.
+- The COMBINATION of photos + self-description — do they cohere or contradict each other?
+- Explicit or implicit contradictions, mismatches, inconsistencies or image-management.
+- Red flags and green flags specifically for a secure, monogamous, emotionally-available, long-term partnership.
+
+Be specific and evidence-based: tie every judgment to something concrete in the material. State uncertainty honestly and do NOT invent facts you cannot actually see. Pay special attention to signs of avoidant attachment, since that is my single biggest concern.
+
+Score this person against MY rubric. For each dimension give an INTEGER 0–10 (10 = ideal fit for me) or null if there is genuinely no signal yet. For each hard dealbreaker, say whether the material suggests it is TRUE (present) — only mark true with real evidence; otherwise false.
+
+MY HARD DEALBREAKERS (id — meaning):
+${dbs.map(d=>`${d.id} — ${d.label}`).join("\n")}
+
+MY WEIGHTED DIMENSIONS (id — name [weight]: what a good match looks like):
+${dims.map(d=>`${d.id} — ${d.name} [${d.weight}]: ${d.desc}`).join("\n")}
+`;
+  if(c.name) t+=`\nCandidate name / handle: ${c.name}\n`;
+  const texts=(c.attachments||[]).filter(a=>a.type!=="image"&&a.body&&a.body.trim());
+  if(texts.length){ t+=`\nADDITIONAL MATERIAL I've added (messages / notes / other sources) — factor these in:\n`;
+    texts.forEach(a=>t+=`\n[${a.type.toUpperCase()}${a.title?" — "+a.title:""}]\n${a.body.trim()}\n`); }
+  const mine=dims.filter(d=>c.notes&&c.notes[d.id]).map(d=>`- ${d.name}: ${c.notes[d.id]}`);
+  if(mine.length) t+=`\nMy own notes on specific dimensions (respect these):\n${mine.join("\n")}\n`;
+  if(c.generalNotes&&c.generalNotes.trim()) t+=`\nMy general notes: ${c.generalNotes.trim()}\n`;
+  const me=meText();
+  if(me) t+=`\nABOUT ME — the person doing the seeking. Also assess TWO-WAY / MUTUAL fit against this, not just her against my rubric:\n${me}\n`;
+  t+=`\nRespond with ONLY a JSON object — no markdown, no code fences, no commentary — in exactly this shape:
+{
+ "dimensions":[{"id":"<dimension id>","score":<0-10 integer or null>,"rationale":"<short evidence-based reason>"}],
+ "dealbreakers":[{"id":"<dealbreaker id>","flag":<true|false>,"reason":"<evidence, or 'no evidence'>"}],
+ "assessment":"<3-6 paragraph psychological read covering the lenses above>",
+ "greenFlags":["..."],
+ "redFlags":["..."],
+ "contradictions":["..."],
+ "openQuestions":["<specific questions I should explore to fill the gaps>"],
+ "mutualFit":{"score":<0-100 or null>,"herLikelyWants":"<what her profile signals she is looking for in a partner>","howYouFitHer":"<evidence-based read of how well ME (the seeker above) likely matches what she wants>","reciprocity":"<are the key must-haves mutual, or are there clashes>","summary":"<bottom line on two-way fit>"}
+}
+Include every dimension id and every dealbreaker id listed above. Keep each rationale to one or two sentences. ${me?"Fill mutualFit as a genuine two-way assessment of how well WE would fit each other.":"No ABOUT ME was provided, so set mutualFit.score to null and leave its text fields empty."}`;
+  return t;
+}
+
+function meText(){
+  const m=state.me; if(!m) return "";
+  const parts=[];
+  const b=[m.age&&("Age "+m.age),m.height,m.work&&("Work: "+m.work),m.location&&("Based: "+m.location),m.languages&&("Languages: "+m.languages)].filter(Boolean);
+  if(b.length) parts.push(b.join(" · "));
+  if(m.about) parts.push("Personality & attachment: "+m.about);
+  if(m.interests) parts.push("Interests & culture: "+m.interests);
+  if(m.life) parts.push("Life I'm building: "+m.life);
+  if(m.brings) parts.push("What I bring: "+m.brings);
+  if(m.boundaries) parts.push("Boundaries & facts: "+m.boundaries);
+  if(m.extra) parts.push("Other: "+m.extra);
+  return parts.join("\n");
+}
+
+/* manual copy prompt (unchanged flow, for pasting elsewhere) */
+function aiPrompt(c){ return assessInstructions(c) + "\n\n(Screenshots are attached in my tool; if you cannot see images, work from the text I provided.)"; }
+
+/* ---------- AI: API calls ---------- */
+function parseImages(c){
+  return (c.attachments||[]).filter(a=>a.type==="image").map(a=>{
+    const m=(a.dataUrl||"").match(/^data:([^;]+);base64,(.*)$/s);
+    return m?{media:m[1],data:m[2]}:null;
+  }).filter(Boolean);
+}
+const ASSESS_SCHEMA={ type:"object", properties:{
+  dimensions:{type:"array",items:{type:"object",properties:{id:{type:"string"},score:{type:["integer","null"]},rationale:{type:"string"}},required:["id"]}},
+  dealbreakers:{type:"array",items:{type:"object",properties:{id:{type:"string"},flag:{type:"boolean"},reason:{type:"string"}},required:["id"]}},
+  assessment:{type:"string"},
+  greenFlags:{type:"array",items:{type:"string"}},
+  redFlags:{type:"array",items:{type:"string"}},
+  contradictions:{type:"array",items:{type:"string"}},
+  openQuestions:{type:"array",items:{type:"string"}},
+  mutualFit:{type:"object",properties:{score:{type:["integer","null"]},herLikelyWants:{type:"string"},howYouFitHer:{type:"string"},reciprocity:{type:"string"},summary:{type:"string"}}}
+}, required:["dimensions","dealbreakers","assessment"] };
+
+async function callAnthropic(model,key,text,images){
+  const content=[{type:"text",text}];
+  images.forEach(im=>content.push({type:"image",source:{type:"base64",media_type:im.media,data:im.data}}));
+  const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+    headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model,max_tokens:8192,
+      tools:[{name:"report_assessment",description:"Return the structured compatibility assessment.",input_schema:ASSESS_SCHEMA}],
+      tool_choice:{type:"tool",name:"report_assessment"},
+      messages:[{role:"user",content}]})});
+  if(!res.ok){ throw new Error("Anthropic "+res.status+": "+(await res.text()).slice(0,400)); }
+  const data=await res.json();
+  const tool=(data.content||[]).find(x=>x.type==="tool_use");
+  if(tool&&tool.input&&typeof tool.input==="object") return tool.input;
+  const txt=(data.content||[]).find(x=>x.type==="text");
+  return parseJSON(txt?txt.text:"");
+}
+async function callOpenAI(model,key,text,images){
+  const content=[{type:"text",text}];
+  images.forEach(im=>content.push({type:"image_url",image_url:{url:`data:${im.media};base64,${im.data}`}}));
+  const res=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",
+    headers:{"content-type":"application/json","authorization":"Bearer "+key},
+    body:JSON.stringify({model,max_completion_tokens:8192,response_format:{type:"json_object"},messages:[{role:"user",content}]})});
+  if(!res.ok){ throw new Error("OpenAI "+res.status+": "+(await res.text()).slice(0,400)); }
+  const data=await res.json();
+  const txt=(data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content)||"";
+  return parseJSON(txt);
+}
+function parseJSON(raw){
+  if(!raw) throw new Error("The model returned an empty reply — try Re-assess.");
+  if(typeof raw==="object") return raw;
+  let t=String(raw).trim().replace(/```json/gi,"```").replace(/```/g,"").trim();
+  const a=t.indexOf("{"), b=t.lastIndexOf("}");
+  if(a>=0&&b>a) t=t.slice(a,b+1);
+  try{ return JSON.parse(t); }
+  catch(e){
+    try{ return JSON.parse(t.replace(/,\s*([}\]])/g,"$1")); } // drop trailing commas and retry
+    catch(e2){ throw new Error("Could not parse the model's reply (it may have been cut off). Try Re-assess, or switch the model in Settings."); }
+  }
+}
+function applyAssessment(c,obj,provider,model){
+  if(Array.isArray(obj.dimensions)) obj.dimensions.forEach(d=>{
+    const dim=state.rubric.dimensions.find(x=>x.id===d.id); if(!dim) return;
+    if(c.ratingSource[d.id]==="user") return;            // user override wins
+    if(d.score===null||d.score===undefined){ return; }
+    let v=Math.max(0,Math.min(10,Math.round(+d.score))); if(isNaN(v)) return;
+    c.ratings[d.id]=v; c.ratingSource[d.id]="ai"; if(d.rationale) c.aiRationale[d.id]=d.rationale;
+  });
+  if(Array.isArray(obj.dealbreakers)) obj.dealbreakers.forEach(d=>{
+    const db=state.rubric.dealbreakers.find(x=>x.id===d.id); if(!db) return;
+    if(c.dbSource[d.id]==="user") return;
+    c.dealbreakers[d.id]=!!d.flag; c.dbSource[d.id]="ai"; if(d.reason) c.dbReason[d.id]=d.reason;
+  });
+  c.ai={ assessment:obj.assessment||"", greenFlags:obj.greenFlags||[], redFlags:obj.redFlags||[],
+    contradictions:obj.contradictions||[], openQuestions:obj.openQuestions||[],
+    at:Date.now(), provider, model };
+  if(obj.mutualFit){ const mf=obj.mutualFit;
+    c.mutual={ score:(typeof mf.score==="number"?Math.max(0,Math.min(100,Math.round(mf.score))):null),
+      herLikelyWants:mf.herLikelyWants||"", howYouFitHer:mf.howYouFitHer||"",
+      reciprocity:mf.reciprocity||"", summary:mf.summary||"", at:Date.now() }; }
+}
+async function assess(id){
+  const c=cand(id); if(!c) return;
+  const prov=settings.provider, key=settings.keys[prov], model=settings.models[prov];
+  aiError[id]="";
+  if(!key){ aiError[id]="Add your "+(prov==="anthropic"?"Anthropic":"OpenAI")+" API key in Settings first."; render(); return; }
+  const imgs=parseImages(c);
+  const hasText=(c.attachments||[]).some(a=>a.body&&a.body.trim()) || (c.generalNotes&&c.generalNotes.trim());
+  if(!imgs.length && !hasText){ aiError[id]="Add at least one screenshot (or some text) for the AI to analyse."; render(); return; }
+  aiBusy[id]=true; render();
+  try{
+    const obj = prov==="anthropic" ? await callAnthropic(model,key,assessInstructions(c),imgs)
+                                    : await callOpenAI(model,key,assessInstructions(c),imgs);
+    applyAssessment(c, obj, prov, model);
+    aiBusy[id]=false; save(); render(); toast("AI assessment complete");
+  }catch(e){ aiBusy[id]=false; aiError[id]=(e&&e.message)||String(e); render(); }
+}
+
+/* ---------- helpers ---------- */
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
+function toast(t){ const el=document.getElementById("toast"); el.textContent=t; el.classList.add("on"); setTimeout(()=>el.classList.remove("on"),1600); }
+function copyText(t){ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(()=>toast("Copied")).catch(()=>fbCopy(t)); } else fbCopy(t); }
+function fbCopy(t){ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); toast("Copied"); }catch(e){ toast("Copy failed"); } document.body.removeChild(ta); }
+
+/* ---------- render ---------- */
+const main=document.getElementById("main");
+function render(){
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
+  if(view==="candidates") renderCandidates();
+  else if(view==="compare") renderCompare();
+  else if(view==="rubric") renderRubric();
+  else if(view==="myprofile") renderMe();
+  else renderSettings();
+}
+
+function renderCandidates(){
+  if(!state.selected&&state.candidates.length) state.selected=state.candidates[0].id;
+  const c=state.candidates.find(x=>x.id===state.selected);
+  let list=`<div class="clist">`;
+  state.candidates.forEach(x=>{
+    const s=scoreOf(x), t=tierOf(s.score,s.dq);
+    const badge=s.dq.length?`<span class="badge sm dq">DQ</span>`
+      :s.score===null?`<span class="badge sm na">—</span>`
+      :`<span class="badge sm" style="background:${t.color}">${s.score}</span>`;
+    list+=`<button class="ccard ${x.id===state.selected?'sel':''} ${s.dq.length?'dq':''}" onclick="selectCand('${x.id}')">
+      <span class="nm">${esc(x.name)||"Unnamed"}</span>${badge}</button>`;
+  });
+  list+=`<button class="addbtn" onclick="addCand()">+ Add candidate</button></div>`;
+  let detail;
+  if(!c){ detail=`<div class="panel"><div class="empty"><h2>No candidate selected</h2>
+    <p>Each person becomes a project. Upload dating-app screenshots, then let the AI read the photos and descriptions, score every dimension and flag red/green signals — then refine with your own notes and messages.</p>
+    <button class="tbtn primary" onclick="addCand()" style="margin-top:10px">+ Add your first candidate</button></div></div>`; }
+  else detail=candidateDetail(c);
+  main.innerHTML=`<div class="cwrap">${list}<div>${detail}</div></div>`;
+}
+
+function candidateDetail(c){
+  const s=scoreOf(c), t=tierOf(s.score,s.dq), dims=state.rubric.dimensions;
+  let h=`<div class="panel"><div class="cand-head">
+    <input class="name" value="${esc(c.name)}" placeholder="Candidate name / handle" oninput="setName('${c.id}',this.value)">
+    <button class="tbtn danger" onclick="removeCand('${c.id}')">Delete</button></div>`;
+  if(s.dq.length) h+=`<div class="dq-banner">⛔ Disqualified by dealbreaker: ${s.dq.map(x=>esc(x.label)).join(", ")}. Shown for reference — ruled out by your rules.</div>`;
+  h+=`<div class="scorebox">
+    <div class="bigscore">${s.score===null?'—':s.score}<small>/100</small></div>
+    <div><span class="tier" style="background:${t.color}">${t.label}</span>
+    <div class="score-meta" style="margin-top:8px">${s.assessed}% of rubric assessed</div>
+    <div class="assessbar"><i style="width:${s.assessed}%"></i></div>
+    ${c.mutual&&c.mutual.score!=null?`<div class="score-meta" style="margin-top:8px">↔ Mutual fit: <b style="color:var(--series-1)">${c.mutual.score}/100</b></div>`:""}
+    </div></div></div>`;
+
+  // AI panel (top, since it's the main workflow)
+  h+=aiPanel(c);
+
+  // data / evidence FIRST so screenshots come before rating
+  let att=`<div class="panel"><h3>Screenshots & evidence</h3>
+    <div class="hint" style="margin-bottom:10px">Upload the profile screenshots (photos + the descriptions shown in them). These are the raw source for the AI's first-pass read. Add messages, journal entries or notes from other sources any time, then Re-assess.</div>
+    <div class="att-list">`;
+  (c.attachments||[]).forEach(a=>{
+    if(a.type==="image") att+=`<div class="att"><img src="${a.dataUrl}" onclick="lightbox('${a.dataUrl}')" alt="${esc(a.title)}">
+      <div class="meta"><div class="atype">screenshot</div><div class="atitle">${esc(a.title)||"Screenshot"}</div></div>
+      <button class="rm" onclick="rmAtt('${c.id}','${a.id}')">×</button></div>`;
+    else att+=`<div class="att"><div class="meta"><div class="atype">${esc(a.type)}</div>
+      <div class="atitle">${esc(a.title)||"(untitled)"}</div><div class="abody">${esc(a.body)}</div></div>
+      <button class="rm" onclick="rmAtt('${c.id}','${a.id}')">×</button></div>`;
+  });
+  att+=`</div><div class="add-att-row">
+    <label class="tbtn">📷 Add screenshots<input type="file" accept="image/*" multiple hidden onchange="addImages('${c.id}',this)"></label>
+    <button class="tbtn" onclick="addText('${c.id}','message')">+ Messages</button>
+    <button class="tbtn" onclick="addText('${c.id}','note')">+ Note</button>
+    <button class="tbtn" onclick="addText('${c.id}','journal')">+ Journal entry</button></div>
+    <textarea style="margin-top:14px" placeholder="General notes about this person…" oninput="setGeneral('${c.id}',this.value)">${esc(c.generalNotes||"")}</textarea></div>`;
+
+  // dealbreakers
+  let db=`<div class="panel"><h3>Dealbreaker check</h3><div class="db-grid">`;
+  state.rubric.dealbreakers.forEach(d=>{
+    const on=c.dealbreakers&&c.dealbreakers[d.id];
+    const ai=c.dbSource&&c.dbSource[d.id]==="ai";
+    const reason=c.dbReason&&c.dbReason[d.id]?c.dbReason[d.id]:"";
+    db+=`<label class="db-chip ${on?'on':''}" ${reason?`title="${esc(reason)}"`:''}>
+      <input type="checkbox" ${on?'checked':''} onchange="setDB('${c.id}','${d.id}',this.checked)">
+      <span>${esc(d.label)}</span>${ai?`<span class="aitag">AI</span>`:''}</label>`;
+  });
+  db+=`</div><div class="hint">A single tick disqualifies. Ticks marked “AI” were set by the assessment — untick to override; your choice sticks on re-assess.</div></div>`;
+
+  // dimensions
+  let dm=`<div class="panel"><h3>Rate against your rubric</h3>`;
+  dims.forEach(d=>{
+    const r=c.ratings&&c.ratings[d.id]!==undefined?c.ratings[d.id]:null;
+    const src=c.ratingSource&&c.ratingSource[d.id];
+    const note=c.notes&&c.notes[d.id]?c.notes[d.id]:"";
+    const aiRat=c.aiRationale&&c.aiRationale[d.id]?c.aiRationale[d.id]:"";
+    dm+=`<div class="dim" data-dim="${d.id}">
+      <div class="dim-top"><span class="dn">${esc(d.name)}</span><span class="dw">weight ${d.weight}</span>${src==='ai'?'<span class="aitag">AI</span>':''}</div>
+      <div class="dim-desc">${esc(d.desc)}</div>
+      <div class="rate-row">
+        <input type="range" min="0" max="10" step="1" value="${r===null?5:r}" class="${r===null?'unrated':''}" oninput="setRating('${c.id}','${d.id}',this.value)">
+        <span class="rv ${r===null?'na':''}">${r===null?'not rated':r+'/10'}</span>
+        <button class="clearbtn" onclick="clearRating('${c.id}','${d.id}')">clear</button></div>
+      ${aiRat?`<div class="airat"><b>AI:</b> ${esc(aiRat)}</div>`:''}
+      <textarea placeholder="Your notes / evidence for this dimension…" oninput="setNote('${c.id}','${d.id}',this.value)">${esc(note)}</textarea>
+    </div>`;
+  });
+  dm+=`</div>`;
+
+  // deterministic summary + copy prompt
+  let nr=`<div class="panel"><h3>Rubric summary</h3>
+    <div class="narr" id="narr_${c.id}">${esc(narrative(c))}</div>
+    <div class="add-att-row"><button class="tbtn" onclick="copyPrompt('${c.id}')">⧉ Copy full prompt</button>
+    <span class="hint" style="margin:0">Copy the rubric + this person's data to paste into any AI manually.</span></div></div>`;
+
+  return h+att+db+dm+nr;
+}
+
+function aiPanel(c){
+  const busy=aiBusy[c.id], err=aiError[c.id], has=c.ai;
+  const provName=settings.provider==="anthropic"?"Claude":"OpenAI";
+  let html=`<div class="panel"><h3>AI first-pass assessment</h3>
+    <div class="flexline" style="margin-bottom:6px">
+      <button class="tbtn primary" ${busy?'disabled':''} onclick="assess('${c.id}')">${busy?'<span class="spin"></span> Analysing…':(has?'↻ Re-assess with AI':'✦ Assess with AI')}</button>
+      <span class="hint" style="margin:0">Reads all screenshots + notes so far · ${esc(provName)} · ${esc(settings.models[settings.provider])}</span></div>`;
+  if(err) html+=`<div class="dq-banner" style="margin:12px 0 0">⚠ ${esc(err)}</div>`;
+  if(busy) html+=`<div class="narr" style="margin-top:12px">Reading photos and text and scoring against your rubric… usually 10–30 seconds.</div>`;
+  else if(has){
+    const a=c.ai;
+    html+=`<div class="narr" style="margin-top:12px">${esc(a.assessment)}</div>`;
+    html+=flagBlock("Green flags",a.greenFlags,"var(--good)");
+    html+=flagBlock("Red flags",a.redFlags,"var(--critical)");
+    html+=flagBlock("Contradictions / mismatches",a.contradictions,"var(--warning)");
+    html+=flagBlock("Questions to explore",a.openQuestions,"var(--series-1)");
+    html+=mutualBlock(c);
+    let when=""; try{ when=new Date(a.at).toLocaleString(); }catch(e){}
+    html+=`<div class="hint" style="margin-top:12px">Generated ${esc(when)} · ${esc(a.provider)} · ${esc(a.model)}. It set the “AI”-tagged ratings and flags below — adjust any and your version wins next time.</div>`;
+  } else {
+    html+=`<div class="hint" style="margin-top:4px">Add screenshots below, then run this. The AI reads the photos and the descriptions in them, applies body-language / symbolism / self-presentation / contradiction analysis, scores every rubric dimension, flags likely dealbreakers, and writes a psychological read. Add messages or more photos later and Re-assess to fold them in. Set your provider and API key in <b>Settings</b> first.</div>`;
+  }
+  return html+`</div>`;
+}
+function flagBlock(title,arr,color){ if(!arr||!arr.length) return "";
+  return `<div class="flags"><div class="ft" style="color:${color}">${title}</div>
+    <ul>${arr.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`; }
+function mutualBlock(c){
+  const mf=c.mutual; if(!mf) return "";
+  const has=mf.summary||mf.herLikelyWants||mf.howYouFitHer||mf.reciprocity||mf.score!=null;
+  if(!has) return "";
+  let inner="";
+  if(mf.summary) inner+=`<b>Bottom line:</b> ${esc(mf.summary)}\n\n`;
+  if(mf.herLikelyWants) inner+=`<b>What she seems to want:</b> ${esc(mf.herLikelyWants)}\n\n`;
+  if(mf.howYouFitHer) inner+=`<b>How you'd land with her:</b> ${esc(mf.howYouFitHer)}\n\n`;
+  if(mf.reciprocity) inner+=`<b>Reciprocity:</b> ${esc(mf.reciprocity)}`;
+  return `<div class="flags"><div class="ft" style="color:var(--series-1)">↔ Mutual fit${mf.score!=null?` — ${mf.score}/100`:""}</div>
+    <div class="narr" style="margin-top:6px">${inner}</div></div>`;
+}
+
+function renderCompare(){
+  const dims=state.rubric.dimensions;
+  const rows=state.candidates.map(c=>({c,s:scoreOf(c)}));
+  if(!rows.length){ main.innerHTML=`<div class="panel"><div class="empty"><h2>No candidates yet</h2><p>Add candidates to compare them side by side.</p></div></div>`; return; }
+  const sorted=rows.slice().sort((a,b)=>{
+    if(compareSort==="name") return (a.c.name||"").localeCompare(b.c.name||"");
+    const av=a.s.dq.length?-1:(a.s.score===null?-0.5:a.s.score);
+    const bv=b.s.dq.length?-1:(b.s.score===null?-0.5:b.s.score);
+    return bv-av;
+  });
+  let rank=`<div class="panel"><h3>Ranking</h3><table>
+    <tr><th onclick="setSort('name')">Candidate</th><th class="num" onclick="setSort('score')">Score</th>
+    <th>Verdict</th><th class="num">Assessed</th><th>Flags</th></tr>`;
+  sorted.forEach(({c,s})=>{ const t=tierOf(s.score,s.dq);
+    rank+=`<tr class="rowlink" onclick="goCand('${c.id}')">
+      <td><b>${esc(c.name)||"Unnamed"}</b></td>
+      <td class="num"><span class="badge" style="background:${s.dq.length?'var(--critical)':t.color}">${s.dq.length?'DQ':(s.score===null?'—':s.score)}</span></td>
+      <td>${t.label}</td><td class="num muted">${s.assessed}%</td>
+      <td class="muted">${s.dq.length?esc(s.dq.map(x=>x.label).join(", ")):'—'}</td></tr>`; });
+  rank+=`</table></div>`;
+  let mx=`<div class="panel"><h3>Dimension matrix</h3><div style="overflow-x:auto"><table class="matrix"><tr><th></th>`;
+  dims.forEach(d=>mx+=`<th class="rot num" title="${esc(d.name)}">${esc(shortName(d.name))}<div class="muted" style="font-weight:600">w${d.weight}</div></th>`);
+  mx+=`<th class="num">Score</th></tr>`;
+  sorted.forEach(({c,s})=>{ mx+=`<tr class="rowlink" onclick="goCand('${c.id}')"><td class="nm">${esc(c.name)||"Unnamed"}</td>`;
+    dims.forEach(d=>{ const r=c.ratings&&c.ratings[d.id]!==undefined&&c.ratings[d.id]!==null?c.ratings[d.id]:null;
+      mx+=`<td class="cell num" style="background:${ratingCell(r)}">${r===null?'':r}</td>`; });
+    mx+=`<td class="num"><b>${s.dq.length?'DQ':(s.score===null?'—':s.score)}</b></td></tr>`; });
+  mx+=`</table></div><div class="legend"><span>Low</span>
+    <span class="sw" style="background:${ratingCell(2)}"></span><span class="sw" style="background:${ratingCell(5)}"></span>
+    <span class="sw" style="background:${ratingCell(8)}"></span><span class="sw" style="background:${ratingCell(10)}"></span>
+    <span>High · empty = not rated</span></div></div>`;
+  main.innerHTML=rank+mx;
+}
+
+function renderRubric(){
+  const r=state.rubric, wsum=r.dimensions.reduce((a,d)=>a+(+d.weight||0),0);
+  let dm=`<div class="panel"><h3>Weighted dimensions</h3>
+    <div class="rrow" style="font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:650">
+      <div>Dimension</div><div>Weight</div><div>What good looks like</div><div></div></div>`;
+  r.dimensions.forEach((d,i)=>{ dm+=`<div class="rrow">
+    <input value="${esc(d.name)}" oninput="editDim(${i},'name',this.value)">
+    <input type="number" min="0" step="1" value="${d.weight}" oninput="editDim(${i},'weight',this.value)">
+    <textarea oninput="editDim(${i},'desc',this.value)">${esc(d.desc)}</textarea>
+    <button class="rm" onclick="delDim(${i})">×</button></div>`; });
+  dm+=`<div class="wsum">Weights total: <b>${wsum}</b> ${wsum===100?'✓':'(scores are normalised automatically, so this need not equal 100)'}</div>
+    <div class="flexline"><button class="tbtn" onclick="addDimRow()">+ Add dimension</button>
+    <button class="tbtn danger" onclick="resetRubric()">Reset to defaults</button></div></div>`;
+  let db=`<div class="panel"><h3>Hard dealbreakers</h3>
+    <div class="hint" style="margin-bottom:12px">Any one of these auto-disqualifies a candidate.</div>`;
+  r.dealbreakers.forEach((d,i)=>{ db+=`<div class="dbrow"><input value="${esc(d.label)}" oninput="editDB(${i},this.value)">
+    <button class="rm" onclick="delDB(${i})">×</button></div>`; });
+  db+=`<button class="tbtn" onclick="addDBrow()">+ Add dealbreaker</button></div>`;
+  main.innerHTML=dm+db;
+}
+
+function renderMe(){
+  const m=state.me||{};
+  main.innerHTML=`<div class="panel"><h3>My profile</h3>
+    <div class="hint" style="margin-bottom:14px">This is you. When you assess a candidate, the AI uses it to score <b>mutual fit</b> — how you'd likely land with her, what she seems to want, and whether the must-haves are reciprocal. It's also the raw material for your dating-app profiles. Pre-filled from our conversation — edit freely.</div>
+    <div class="sgrid">
+      <div><label class="slabel">Age</label><input value="${esc(m.age||'')}" oninput="setMe('age',this.value)"></div>
+      <div><label class="slabel">Height</label><input value="${esc(m.height||'')}" oninput="setMe('height',this.value)"></div>
+    </div>
+    <label class="slabel">Work</label><input value="${esc(m.work||'')}" oninput="setMe('work',this.value)">
+    <div class="sgrid">
+      <div><label class="slabel">Location</label><input value="${esc(m.location||'')}" oninput="setMe('location',this.value)"></div>
+      <div><label class="slabel">Languages</label><input value="${esc(m.languages||'')}" oninput="setMe('languages',this.value)"></div>
+    </div>
+    <label class="slabel">About me — personality & attachment</label>
+    <textarea style="min-height:96px" oninput="setMe('about',this.value)">${esc(m.about||'')}</textarea>
+    <label class="slabel">Interests & culture</label>
+    <textarea style="min-height:110px" oninput="setMe('interests',this.value)">${esc(m.interests||'')}</textarea>
+    <label class="slabel">The life I'm building</label>
+    <textarea style="min-height:64px" oninput="setMe('life',this.value)">${esc(m.life||'')}</textarea>
+    <label class="slabel">What I bring to a relationship</label>
+    <textarea style="min-height:80px" oninput="setMe('brings',this.value)">${esc(m.brings||'')}</textarea>
+    <label class="slabel">My boundaries & facts (kids, politics, religion, monogamy…)</label>
+    <textarea style="min-height:64px" oninput="setMe('boundaries',this.value)">${esc(m.boundaries||'')}</textarea>
+    <label class="slabel">Anything else</label>
+    <textarea style="min-height:56px" oninput="setMe('extra',this.value)">${esc(m.extra||'')}</textarea>
+  </div>`;
+}
+
+function renderSettings(){
+  const s=settings;
+  main.innerHTML=`<div class="panel"><h3>AI assessment settings</h3>
+    <div class="hint" style="margin-bottom:6px">The tool calls the AI directly from this page using <b>your own</b> API key. Your key is stored only in this browser — it is never written into exported data files and never sent anywhere except the provider you pick.</div>
+    <label class="slabel">Provider (pick per use)</label>
+    <select class="prov-select" onchange="setProvider(this.value)">
+      <option value="anthropic" ${s.provider==='anthropic'?'selected':''}>Claude (Anthropic) — recommended</option>
+      <option value="openai" ${s.provider==='openai'?'selected':''}>OpenAI (GPT)</option>
+    </select>
+    <div class="sgrid">
+      <div>
+        <label class="slabel">Anthropic API key</label>
+        <input type="password" value="${esc(s.keys.anthropic)}" placeholder="sk-ant-…" oninput="setKey('anthropic',this.value)">
+        <label class="slabel">Anthropic model</label>
+        <input list="anthModels" value="${esc(s.models.anthropic)}" oninput="setModel('anthropic',this.value)">
+        <datalist id="anthModels"><option value="claude-sonnet-5"></option><option value="claude-opus-4-8"></option><option value="claude-fable-5"></option><option value="claude-haiku-4-5"></option></datalist>
+        <div class="hint">Vision-capable. Get a key at console.anthropic.com. Opus/Fable = deepest read; Sonnet = balanced; Haiku = cheapest.</div>
+      </div>
+      <div>
+        <label class="slabel">OpenAI API key</label>
+        <input type="password" value="${esc(s.keys.openai)}" placeholder="sk-…" oninput="setKey('openai',this.value)">
+        <label class="slabel">OpenAI model</label>
+        <input list="oaModels" value="${esc(s.models.openai)}" oninput="setModel('openai',this.value)">
+        <datalist id="oaModels"><option value="gpt-5.6-terra"></option><option value="gpt-5.6-sol"></option><option value="gpt-5.6-luna"></option></datalist>
+        <div class="hint">Get a key at platform.openai.com.</div>
+      </div>
+    </div>
+    <div class="hint" style="margin-top:16px"><b>Heads-up on OpenAI:</b> browsers often block direct calls to OpenAI (CORS). If an OpenAI assessment fails with a network/CORS error, switch the provider to Claude, which officially supports being called from a page. Model names change over time — if one is rejected, edit the field above.</div>
+  </div>`;
+}
+
+/* ---------- actions ---------- */
+function addCand(){ const c={id:uid("c_"),name:"",createdAt:Date.now(),dealbreakers:{},ratings:{},notes:{},
+  attachments:[],generalNotes:"",ratingSource:{},aiRationale:{},dbSource:{},dbReason:{},ai:null};
+  state.candidates.push(c); state.selected=c.id; view="candidates"; save(); render();
+  setTimeout(()=>{ const el=document.querySelector(".cand-head input.name"); if(el) el.focus(); },50); }
+function selectCand(id){ state.selected=id; save(); render(); }
+function goCand(id){ state.selected=id; view="candidates"; save(); render(); window.scrollTo(0,0); }
+function removeCand(id){ const c=cand(id);
+  if(!confirm(`Delete ${c&&c.name?c.name:"this candidate"}? This cannot be undone.`)) return;
+  state.candidates=state.candidates.filter(x=>x.id!==id);
+  if(state.selected===id) state.selected=state.candidates.length?state.candidates[0].id:null;
+  save(); render(); }
+function setName(id,v){ cand(id).name=v; save(); }
+function setDB(id,dbid,on){ const c=cand(id); c.dealbreakers[dbid]=on; c.dbSource[dbid]="user"; save(); render(); }
+function setRating(id,dim,v){ const c=cand(id); c.ratings[dim]=parseInt(v,10); c.ratingSource[dim]="user";
+  const el=document.querySelector('.dim[data-dim="'+dim+'"]');
+  if(el){ const rv=el.querySelector('.rv'); if(rv){ rv.textContent=v+'/10'; rv.classList.remove('na'); }
+    const rg=el.querySelector('input[type=range]'); if(rg) rg.classList.remove('unrated');
+    const tag=el.querySelector('.dim-top .aitag'); if(tag) tag.remove(); }
+  save(); refreshScoreWidgets(id); }
+function clearRating(id,dim){ const c=cand(id); c.ratings[dim]=null; delete c.ratingSource[dim]; delete c.aiRationale[dim]; save(); render(); }
+function setNote(id,dim,v){ cand(id).notes[dim]=v; save(); }
+function setGeneral(id,v){ cand(id).generalNotes=v; save(); }
+function cand(id){ return state.candidates.find(x=>x.id===id); }
+
+function refreshScoreWidgets(id){
+  const c=cand(id), s=scoreOf(c), t=tierOf(s.score,s.dq);
+  const big=document.querySelector(".bigscore"); if(big) big.innerHTML=`${s.score===null?'—':s.score}<small>/100</small>`;
+  const tier=document.querySelector(".tier"); if(tier){ tier.textContent=t.label; tier.style.background=t.color; }
+  const meta=document.querySelector(".score-meta"); if(meta) meta.textContent=`${s.assessed}% of rubric assessed`;
+  const bar=document.querySelector(".assessbar>i"); if(bar) bar.style.width=s.assessed+"%";
+  const nr=document.getElementById("narr_"+id); if(nr) nr.textContent=narrative(c);
+  const sel=document.querySelector(".clist .ccard.sel .badge");
+  if(sel){ if(s.dq.length){sel.textContent="DQ";sel.style.background="var(--critical)";}
+    else if(s.score===null){sel.textContent="—";} else {sel.textContent=s.score;sel.style.background=t.color;} }
+}
+
+function addImages(id,input){ const c=cand(id); const files=[...input.files]; let pending=files.length; if(!pending) return;
+  files.forEach(f=>{ const fr=new FileReader(); fr.onload=e=>downscale(e.target.result,1500,0.85,durl=>{
+    c.attachments.push({id:uid("a_"),type:"image",title:f.name,dataUrl:durl}); if(--pending===0){ save(); render(); } }); fr.readAsDataURL(f); });
+  input.value=""; }
+function downscale(dataUrl,maxDim,q,cb){ const img=new Image();
+  img.onload=()=>{ let w=img.width,h=img.height; const sc=Math.min(1,maxDim/Math.max(w,h)); w=Math.round(w*sc); h=Math.round(h*sc);
+    const cv=document.createElement("canvas"); cv.width=w; cv.height=h; cv.getContext("2d").drawImage(img,0,0,w,h);
+    try{ cb(cv.toDataURL("image/jpeg",q)); }catch(e){ cb(dataUrl); } };
+  img.onerror=()=>cb(dataUrl); img.src=dataUrl; }
+function addText(id,type){ const c=cand(id);
+  const title=prompt(`Title for this ${type} (optional):`,"")||"";
+  const body=prompt(`Paste the ${type} text:`,""); if(body===null) return;
+  c.attachments.push({id:uid("a_"),type,title,body}); save(); render(); }
+function rmAtt(id,aid){ const c=cand(id); c.attachments=c.attachments.filter(a=>a.id!==aid); save(); render(); }
+function copyPrompt(id){ copyText(aiPrompt(cand(id))); }
+
+/* rubric editing */
+function editDim(i,f,v){ state.rubric.dimensions[i][f]= f==="weight"?(parseFloat(v)||0):v; save();
+  if(f==="weight"){ const el=document.querySelector(".wsum b"); if(el) el.textContent=state.rubric.dimensions.reduce((a,d)=>a+(+d.weight||0),0); } }
+function delDim(i){ if(!confirm("Remove this dimension? Existing ratings for it will be dropped.")) return;
+  const id=state.rubric.dimensions[i].id; state.rubric.dimensions.splice(i,1);
+  state.candidates.forEach(c=>{ delete c.ratings[id]; delete c.notes[id]; delete c.ratingSource[id]; delete c.aiRationale[id]; }); save(); render(); }
+function addDimRow(){ state.rubric.dimensions.push({id:uid("d_"),name:"New dimension",weight:5,desc:""}); save(); render(); }
+function editDB(i,v){ state.rubric.dealbreakers[i].label=v; save(); }
+function delDB(i){ const id=state.rubric.dealbreakers[i].id; state.rubric.dealbreakers.splice(i,1);
+  state.candidates.forEach(c=>{ delete c.dealbreakers[id]; delete c.dbSource[id]; delete c.dbReason[id]; }); save(); render(); }
+function addDBrow(){ state.rubric.dealbreakers.push({id:uid("db_"),label:"New dealbreaker"}); save(); render(); }
+function resetRubric(){ if(!confirm("Reset rubric to defaults? Candidates stay, but custom dimensions/weights are replaced.")) return;
+  state.rubric=defaultRubric(); save(); render(); }
+
+/* my profile */
+function setMe(field,v){ if(!state.me) state.me={}; state.me[field]=v; save(); }
+
+/* settings */
+function setProvider(v){ settings.provider=v; saveSettings(); render(); }
+function setKey(p,v){ settings.keys[p]=v.trim(); saveSettings(); }
+function setModel(p,v){ settings.models[p]=v.trim(); saveSettings(); }
+
+/* export / import (keys never included — settings are stored separately) */
+function doExport(){ const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="matchmaker-data.json"; a.click(); URL.revokeObjectURL(url); toast("Saved data file"); }
+function doImport(file){ const fr=new FileReader(); fr.onload=e=>{ try{ const d=JSON.parse(e.target.result);
+    if(!d.rubric||!Array.isArray(d.candidates)) throw new Error("bad");
+    state=d; migrate(); if(!state.selected&&state.candidates[0]) state.selected=state.candidates[0].id;
+    save(); render(); toast("Data loaded"); }catch(err){ alert("Could not read that file — is it a Matchmaker data file?"); } };
+  fr.readAsText(file); }
+
+/* misc */
+function setSort(k){ compareSort=k; render(); }
+function lightbox(src){ const lb=document.getElementById("lightbox"); document.getElementById("lbimg").src=src; lb.classList.add("on"); }
+
+/* ---------- events ---------- */
+document.getElementById("nav").addEventListener("click",e=>{ if(e.target.dataset.view){ view=e.target.dataset.view; render(); }});
+document.getElementById("exportBtn").addEventListener("click",doExport);
+document.getElementById("importBtn").addEventListener("click",()=>document.getElementById("importInput").click());
+document.getElementById("importInput").addEventListener("change",e=>{ if(e.target.files[0]) doImport(e.target.files[0]); e.target.value=""; });
+document.getElementById("lightbox").addEventListener("click",e=>e.currentTarget.classList.remove("on"));
+document.getElementById("themeBtn").addEventListener("click",()=>{ const cur=document.documentElement.getAttribute("data-theme");
+  const next=cur==="auto"?"light":cur==="light"?"dark":"auto"; document.documentElement.setAttribute("data-theme",next);
+  try{ localStorage.setItem("mm_theme",next); }catch(e){}
+  document.getElementById("themeBtn").textContent=next==="light"?"☀":next==="dark"?"☾":"◐"; });
+(function initTheme(){ try{ const th=localStorage.getItem("mm_theme"); if(th){ document.documentElement.setAttribute("data-theme",th);
+  document.getElementById("themeBtn").textContent=th==="light"?"☀":th==="dark"?"☾":"◐"; } }catch(e){} })();
+
+let fontScale=1; try{ const f=parseFloat(localStorage.getItem("mm_fontscale")); if(f&&f>=0.7&&f<=1.6) fontScale=f; }catch(e){}
+function applyFontScale(){ main.style.zoom=String(fontScale); try{ localStorage.setItem("mm_fontscale",String(fontScale)); }catch(e){} }
+document.getElementById("fsUp").addEventListener("click",()=>{ fontScale=Math.min(1.5,Math.round((fontScale+0.1)*10)/10); applyFontScale(); toast(Math.round(fontScale*100)+"% text size"); });
+document.getElementById("fsDown").addEventListener("click",()=>{ fontScale=Math.max(0.8,Math.round((fontScale-0.1)*10)/10); applyFontScale(); toast(Math.round(fontScale*100)+"% text size"); });
+applyFontScale();
+
+Object.assign(window,{selectCand,goCand,addCand,removeCand,setName,setDB,setRating,clearRating,setNote,setGeneral,
+  addImages,addText,rmAtt,copyPrompt,editDim,delDim,addDimRow,editDB,delDB,addDBrow,resetRubric,setSort,lightbox,
+  assess,setProvider,setKey,setModel,setMe});
+
+migrate(); setSaveNote(""); save(); render();
+</script>
+</body>
+</html>
